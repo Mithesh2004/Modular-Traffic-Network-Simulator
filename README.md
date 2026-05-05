@@ -36,7 +36,7 @@ python3 main.py
 
 Outputs written to `output/`:
 - `simulation.gif` — animated visualization of vehicle movement and congestion
-- `stats.png` — 4-panel performance metrics dashboard
+- `stats.png` — performance metrics dashboard
 
 ---
 
@@ -46,12 +46,12 @@ All tunable values are declared at the top of `main.py`. No library files need t
 
 | Parameter | Default | Description |
 |---|---|---|
-| `TOTAL_STEPS` | `150` | Total simulation duration (time steps) |
+| `TOTAL_STEPS` | `400` | Total simulation duration (time steps) |
 | `DT` | `1.0` | Duration of each time step |
-| `VEHICLE_SPEED` | `0.3` | Vehicle progress per step per unit road length |
+| `VEHICLE_SPEED` | `0.1` | Vehicle progress per step per unit road length |
 | `SPAWN_RATE` | `0.4` | Average vehicles spawned per step (Poisson λ) |
 | `SPAWN_MODE` | `'poisson'` | `'poisson'` for random, `'constant'` for fixed rate |
-| `CONGESTION_FACTOR` | `3.0` | Routing penalty weight for congested roads (see below) |
+| `CONGESTION_FACTOR` | `5` | Routing penalty weight for congested roads (see below) |
 
 ### Congestion Factor Explained
 
@@ -64,7 +64,6 @@ effective_cost = road.length × (1 + CONGESTION_FACTOR × road.occupancy)
 | Value | Behaviour |
 |---|---|
 | `0` | Static shortest path — ignores all congestion |
-| `3` | Moderate rerouting when roads exceed ~40% occupancy |
 | `10` | Aggressive avoidance of even mildly busy roads |
 
 ---

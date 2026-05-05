@@ -156,116 +156,67 @@ class Visualizer:
 
     # ------------------------------------------------------------------ stats dashboard
     def plot_statistics(self, metrics_results, output_path='output/stats.png'):
-        """
-        metrics_results: Statistics().results dict
-        4-panel layout:
-          [0,0] Vehicle-level bar chart
-          [0,1] Road occupancy + congestion time series
-          [1,0] Junction metrics bar chart
-          [1,1] Network metrics + summary table
-        """
         r = metrics_results
-        fig = plt.figure(figsize=(14, 10))
+        fig = plt.figure(figsize=(20, 14))
         fig.suptitle('Traffic Simulation — Performance Metrics Dashboard',
-                     fontsize=14, fontweight='bold', y=0.98)
+                    fontsize=15, fontweight='bold', y=0.98)
         fig.patch.set_facecolor('#f6f8fa')
-        gs = fig.add_gridspec(2, 2, hspace=0.42, wspace=0.35)
-        axes = [[fig.add_subplot(gs[i, j]) for j in range(2)] for i in range(2)]
 
-        PALETTE = ['#388bfd', '#3fb950', '#f39c12', '#e74c3c', '#9b59b6']
+        # 3-row layout:
+        #   Row 0: Vehicle metrics | Network summary table
+        #   Row 1: Road occupancy (all roads, full width)
+        #   Row 2: Road queue+congestion | Junction metrics
+        gs = fig.add_gridspec(3, 2,
+                            height_ratios=[1, 1.2, 1.2],
+                            hspace=0.52, wspace=0.32)
 
-        # ── Panel 1: Vehicle-Level ────────────────────────────────────────────
-        ax = axes[0][0]
-        ax.set_facecolor('#f0f4f8')
-        vkeys  = list(r['vehicle'].keys())
-        vvals  = [r['vehicle'][k][0] for k in vkeys]
+        ax_veh   = fig.add_subplot(gs[0, 0])   # Vehicle-level bars
+        ax_net   = fig.add_subplot(gs[0, 1])   # Network summary table
+        ax_occ   = fig.add_subplot(gs[1, :])   # Road occupancy — full width
+        ax_road2 = fig.add_subplot(gs[2, 0])   # Road queue + congestion
+        ax_junc  = fig.add_subplot(gs[2, 1])   # Junction metrics
+
+        PALETTE = ['#388bfd', '#f39c12', '#e74c3c', '#3fb950',
+                '#9b59b6', '#1abc9c', '#e67e22']
+
+        # ── Panel 1: Vehicle-Level ────────────────────────────────
+        ax_veh.set_facecolor('#f0f4f8')
+        vkeys   = list(r['vehicle'].keys())
+        vvals   = [r['vehicle'][k][0] for k in vkeys]
         vlabels = ['Travel\nDelay', 'Avg\nWait Time', 'Avg\nStops']
-        bars = ax.bar(vlabels, vvals, color=PALETTE[:len(vkeys)], edgecolor='white',
-                      width=0.5, zorder=3)
+        bars = ax_veh.bar(vlabels, vvals, color=PALETTE[:3],
+                        edgecolor='white', width=0.5, zorder=3)
         for bar, val in zip(bars, vvals):
-            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.2,
-                    f'{val:.2f}', ha='center', fontsize=9, fontweight='bold')
-        ax.set_title('Vehicle-Level Metrics', fontweight='bold')
-        ax.set_ylabel('Steps / Count')
-        ax.grid(axis='y', alpha=0.4, zorder=0)
-        ax.set_axisbelow(True)
+            ax_veh.text(bar.get_x() + bar.get_width()/2,
+                        bar.get_height() + 0.05,
+                        f'{val:.2f}', ha='center', fontsize=9, fontweight='bold')
+        ax_veh.set_title('Vehicle-Level Metrics', fontweight='bold')
+        ax_veh.set_ylabel('Steps / Count')
+        ax_veh.grid(axis='y', alpha=0.4, zorder=0)
+        ax_veh.set_axisbelow(True)
 
-        # ── Panel 2: Road/Segment-Level (occupancy + congestion steps) ────────
-        ax = axes[0][1]
-        ax.set_facecolor('#f0f4f8')
-        road_ids   = sorted(r['road'].keys(), key=str)
-        mean_occs  = [r['road'][rid]['mean_occupancy'] * 100 for rid in road_ids]
-        mean_qlens = [r['road'][rid]['mean_queue_len']        for rid in road_ids]
-        cong_steps = [r['road'][rid]['time_in_congestion']    for rid in road_ids]
-
-        x = np.arange(len(road_ids))
-        w = 0.26
-        bars1 = ax.bar(x - w, mean_occs,  width=w, label='Avg Occupancy (%)',
-                       color='#388bfd', edgecolor='white', zorder=3)
-        bars2 = ax.bar(x,     mean_qlens, width=w, label='Avg Queue Len',
-                       color='#f39c12', edgecolor='white', zorder=3)
-        bars3 = ax.bar(x + w, cong_steps, width=w, label='Congestion Steps',
-                       color='#e74c3c', edgecolor='white', zorder=3)
-
-        ax.set_xticks(x); ax.set_xticklabels([str(r_) for r_ in road_ids], fontsize=7)
-        ax.set_title('Road / Segment-Level Metrics', fontweight='bold')
-        ax.set_ylabel('Value')
-        ax.legend(fontsize=7, loc='upper right')
-        ax.axhline(66, color='#e74c3c', lw=1, ls=':', alpha=0.5)
-        ax.grid(axis='y', alpha=0.4, zorder=0); ax.set_axisbelow(True)
-
-        # ── Panel 3: Junction-Level ───────────────────────────────────────────
-        ax = axes[1][0]
-        ax.set_facecolor('#f0f4f8')
-        jids     = sorted(r['junction'].keys(), key=str)
-        j_delay  = [r['junction'][j]['avg_delay_per_vehicle'] for j in jids]
-        j_maxq   = [r['junction'][j]['max_queue_length']      for j in jids]
-        j_util   = [r['junction'][j]['utilisation_pct']       for j in jids]
-
-        x2 = np.arange(len(jids))
-        ax2b = ax.twinx()
-        ax.bar(x2 - 0.22, j_delay, width=0.22, label='Avg Delay (steps)',
-               color='#9b59b6', edgecolor='white', zorder=3)
-        ax.bar(x2,         j_maxq,  width=0.22, label='Max Queue Len',
-               color='#e74c3c', edgecolor='white', zorder=3)
-        ax2b.bar(x2 + 0.22, j_util, width=0.22, label='Utilisation %',
-                 color='#3fb950', edgecolor='white', alpha=0.8, zorder=3)
-
-        ax.set_xticks(x2)
-        ax.set_xticklabels([f'J{j}' for j in jids], fontsize=8)
-        ax.set_title('Junction-Level Metrics', fontweight='bold')
-        ax.set_ylabel('Delay / Queue', color='#555')
-        ax2b.set_ylabel('Utilisation %', color='#3fb950')
-        ax2b.tick_params(axis='y', colors='#3fb950')
-
-        lines1, labels1 = ax.get_legend_handles_labels()
-        lines2, labels2 = ax2b.get_legend_handles_labels()
-        ax.legend(lines1 + lines2, labels1 + labels2, fontsize=7, loc='upper right')
-        ax.grid(axis='y', alpha=0.4, zorder=0); ax.set_axisbelow(True)
-
-        # ── Panel 4: Network-Level summary ────────────────────────────────────
-        ax = axes[1][1]
-        ax.axis('off')
-        ax.set_title('Network-Level & Summary', fontweight='bold')
-
+        # ── Panel 2: Network summary table (arrival_rate removed) ─
+        ax_net.axis('off')
+        ax_net.set_title('Network-Level Metrics', fontweight='bold')
         nv = r['network']
         rows = [
-            ['Throughput',         f"{nv['throughput'][0]}",        'vehicles/step'],
-            ['Arrival Rate',       f"{nv['arrival_rate'][0]}%",     'of spawned'],
-            ['Network Efficiency', f"{nv['network_efficiency'][0]}", '0–1 scale'],
-            ['─────────────',      '──────────',                    '──────────'],
+            ['Throughput',         f"{nv['throughput'][0]:.3f}",        'vehicles/step'],
+            ['Network Efficiency', f"{nv['network_efficiency'][0]:.3f}", '0–1 (1=no delay)'],
+            ['─────────────',      '──────────',                         '──────────'],
             ['Total Spawned',  str(self.stats['total_spawned']),  'vehicles'],
             ['Total Arrived',  str(self.stats['total_arrived']),  'vehicles'],
             ['Avg Travel Time',
-             f"{np.mean(self.stats['travel_times']):.2f}" if self.stats['travel_times'] else 'N/A',
-             'steps'],
+            f"{__import__('numpy').mean(self.stats['travel_times']):.2f}"
+            if self.stats['travel_times'] else 'N/A', 'steps'],
             ['Peak Active',    str(max(self.stats['active_counts'])), 'vehicles'],
         ]
-        table = ax.table(cellText=rows,
-                         colLabels=['Metric', 'Value', 'Unit'],
-                         cellLoc='center', loc='center',
-                         colWidths=[0.45, 0.28, 0.27])
-        table.auto_set_font_size(False); table.set_fontsize(9.5); table.scale(1, 1.65)
+        table = ax_net.table(cellText=rows,
+                            colLabels=['Metric', 'Value', 'Unit'],
+                            cellLoc='center', loc='center',
+                            colWidths=[0.48, 0.28, 0.24])
+        table.auto_set_font_size(False)
+        table.set_fontsize(9.5)
+        table.scale(1, 1.75)
         for (row, col), cell in table.get_celld().items():
             if row == 0:
                 cell.set_facecolor('#0d1117')
@@ -275,6 +226,90 @@ class Visualizer:
                 cell.set_text_props(color='#888')
             else:
                 cell.set_facecolor('#f0f4f8' if row % 2 == 0 else 'white')
+
+        # ── Panel 3: Road Occupancy — ALL roads, full width ───────
+        ax_occ.set_facecolor('#f0f4f8')
+        road_ids  = sorted(r['road'].keys(), key=str)
+        mean_occs = [r['road'][rid]['mean_occupancy'] * 100 for rid in road_ids]
+        colors    = [('#e74c3c' if o >= 66 else '#f39c12' if o >= 40
+                    else '#388bfd') for o in mean_occs]
+        x = range(len(road_ids))
+        bars_occ = ax_occ.bar(x, mean_occs, color=colors,
+                            edgecolor='white', width=0.7, zorder=3)
+        for bar, val in zip(bars_occ, mean_occs):
+            if val > 1:
+                ax_occ.text(bar.get_x() + bar.get_width()/2,
+                            bar.get_height() + 0.5,
+                            f'{val:.0f}%', ha='center', fontsize=6.5,
+                            fontweight='bold', rotation=90
+                            if len(road_ids) > 20 else 0)
+        ax_occ.axhline(66, color='#e74c3c', lw=1.2, ls='--',
+                    alpha=0.7, label='Congestion threshold (66%)')
+        ax_occ.axhline(40, color='#f39c12', lw=1,   ls=':',
+                    alpha=0.6, label='Warning threshold (40%)')
+        ax_occ.set_xticks(list(x))
+        ax_occ.set_xticklabels([str(r_) for r_ in road_ids],
+                                fontsize=7, rotation=45, ha='right')
+        ax_occ.set_title('Road / Segment-Level — Mean Occupancy (all roads)',
+                        fontweight='bold')
+        ax_occ.set_ylabel('Mean Occupancy %')
+        ax_occ.set_ylim(0, max(mean_occs) * 1.25 + 5)
+        ax_occ.legend(fontsize=8, loc='upper right')
+        ax_occ.grid(axis='y', alpha=0.4, zorder=0)
+        ax_occ.set_axisbelow(True)
+
+        # ── Panel 4: Road Queue length + Congestion steps ─────────
+        ax_road2.set_facecolor('#f0f4f8')
+        mean_qlens = [r['road'][rid]['mean_queue_len']     for rid in road_ids]
+        cong_steps = [r['road'][rid]['time_in_congestion'] for rid in road_ids]
+        xr = __import__('numpy').arange(len(road_ids))
+        w  = 0.38
+        ax_road2.bar(xr - w/2, mean_qlens, width=w, label='Avg Queue Len',
+                    color='#f39c12', edgecolor='white', zorder=3)
+        ax2b = ax_road2.twinx()
+        ax2b.bar(xr + w/2, cong_steps, width=w, label='Congestion Steps',
+                color='#e74c3c', edgecolor='white', alpha=0.8, zorder=3)
+        ax_road2.set_xticks(xr)
+        ax_road2.set_xticklabels([str(r_) for r_ in road_ids],
+                                fontsize=6.5, rotation=45, ha='right')
+        ax_road2.set_title('Road Queue Length & Congestion Steps',
+                        fontweight='bold')
+        ax_road2.set_ylabel('Avg Queue Len', color='#f39c12')
+        ax2b.set_ylabel('Congestion Steps', color='#e74c3c')
+        ax2b.tick_params(axis='y', colors='#e74c3c')
+        lines1, labels1 = ax_road2.get_legend_handles_labels()
+        lines2, labels2 = ax2b.get_legend_handles_labels()
+        ax_road2.legend(lines1 + lines2, labels1 + labels2,
+                        fontsize=7, loc='upper right')
+        ax_road2.grid(axis='y', alpha=0.4, zorder=0)
+        ax_road2.set_axisbelow(True)
+
+        # ── Panel 5: Junction metrics ──────────────────────────────
+        ax_junc.set_facecolor('#f0f4f8')
+        jids    = sorted(r['junction'].keys(), key=str)
+        j_delay = [r['junction'][j]['avg_delay_per_vehicle'] for j in jids]
+        j_maxq  = [r['junction'][j]['max_queue_length']      for j in jids]
+        j_util  = [r['junction'][j]['utilisation_pct']       for j in jids]
+        xj = __import__('numpy').arange(len(jids))
+        w2 = 0.26
+        ax_junc.bar(xj - w2, j_delay, width=w2, label='Avg Delay',
+                    color='#9b59b6', edgecolor='white', zorder=3)
+        ax_junc.bar(xj,      j_maxq,  width=w2, label='Max Queue',
+                    color='#e74c3c', edgecolor='white', zorder=3)
+        axjb = ax_junc.twinx()
+        axjb.bar(xj + w2, j_util, width=w2, label='Utilisation %',
+                color='#3fb950', edgecolor='white', alpha=0.8, zorder=3)
+        ax_junc.set_xticks(xj)
+        ax_junc.set_xticklabels([f'J{j}' for j in jids], fontsize=8)
+        ax_junc.set_title('Junction-Level Metrics', fontweight='bold')
+        ax_junc.set_ylabel('Delay / Queue', color='#555')
+        axjb.set_ylabel('Utilisation %', color='#3fb950')
+        axjb.tick_params(axis='y', colors='#3fb950')
+        l1, lb1 = ax_junc.get_legend_handles_labels()
+        l2, lb2 = axjb.get_legend_handles_labels()
+        ax_junc.legend(l1 + l2, lb1 + lb2, fontsize=7, loc='upper right')
+        ax_junc.grid(axis='y', alpha=0.4, zorder=0)
+        ax_junc.set_axisbelow(True)
 
         plt.savefig(output_path, dpi=130, bbox_inches='tight')
         plt.close()
