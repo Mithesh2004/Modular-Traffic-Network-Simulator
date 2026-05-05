@@ -1,6 +1,4 @@
 """
-main.py — Grid network topology matching the provided diagram.
-
 5 Sources: S1, S4 (top-left), S2, S5 (mid-left), S3 (mid-right)
 5 Sinks:   K2 (top-right), K3, K4 (bot-left), K1, K5 (bot-right)
 6 Internal junctions (circles): J0-J5
